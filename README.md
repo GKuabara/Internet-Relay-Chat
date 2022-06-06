@@ -14,7 +14,8 @@ This project consists in building a Internet Relay Chat (IRC) composed by a serv
 
 The code was enterely built in programing lanaguage C and in a Ubuntu 22.04 Operational System. Also, the implementation uses gcc (version 11.2.0) and make (version 4.3) packages.
 
-The code can be compiled using any starndad Linux with gcc and make packages through the flollowing command:
+<!--
+The code can be compiled using any starndad Linux with gcc and make packages through the following command:
 
 ```
 make all
@@ -42,4 +43,5 @@ If need some help with the parameters, try:
 
 ```
 ./chat --help
-```
+```)
+-->
