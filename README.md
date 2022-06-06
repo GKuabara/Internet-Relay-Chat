@@ -10,7 +10,7 @@
 
 Project built to "SSC0142 - Computer Networks" course during 1st semester of 2022 at ICMC - Univeristy of São Paulo.
 
-This project consists in building a Internet Relay Chat (IRC) composed by a server and multiple clients connected to the server, using data multiplexing.
+This project consists in 2 parts,deliveries that are divided in different folders.
 
 The code was enterely built in programing lanaguage C and in a Ubuntu 22.04 Operational System. Also, the implementation uses gcc (version 11.2.0) and make (version 4.3) packages.
 
