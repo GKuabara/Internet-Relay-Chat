@@ -6,3 +6,4 @@
 *.so
 server
 client
+utils.c

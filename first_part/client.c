@@ -17,20 +17,7 @@ Alunos:
 #define MSG_LEN 4096
 #define PORT 1337
 
-int send_all(int *soc, char *buf, int *len) {
-    int total = 0; // how many bytes we've sent
-    int bytesleft = *len; // how many we have left to send
-    int n;
-    while(total < *len) {
-        n = send(*soc, buf + total, bytesleft, 0);
-        if (n == -1) break;
-        total += n;
-        bytesleft -= n;
-    }
-    *len = total; // return number actually sent here
-    return n==-1?-1:0; // return -1 on failure, 0 on success
-}
-
+// Function to send multiple messages
 void* send_thread(void *args) {
     int* client_sock = (int*) args;
     char msg[MSG_LEN];
@@ -40,16 +27,13 @@ void* send_thread(void *args) {
         fgets(msg, MSG_LEN, stdin);
         if (msg == NULL) break;
         if (msg[0] == '\n') continue;
-        int slen = strlen(msg);
-        //if (slen < MSG_LEN) msg[slen] = '\0';
-        int n_msgs = (slen / MSG_LEN) + 1;
-        //int bytes_read = send(*client_sock, msg, strlen(msg), 0);
-        if (send_all(client_sock, msg, &slen) == -1) break;
-        printf("msg len: %d,\tnumber of msg: %d\n", slen, n_msgs);
+        int bytes_read = send(*client_sock, msg, strlen(msg), 0);
+        printf("msg len: %ld\n", strlen(msg));
         memset(msg, 0, MSG_LEN);
     }
 }
 
+// Function to receive multiple messages
 void* receive_thread(void *args) {
     int* client_sock = (int*) args;
     char client_message[MSG_LEN];
@@ -63,7 +47,8 @@ void* receive_thread(void *args) {
             break;
         }
         if (strcmp(client_message, "exit\n") == 0) {
-            send(*client_sock, client_message, strlen(client_message), 0); // sending message saying that the connection is being closed
+            // sending message saying that the connection is being closed
+            send(*client_sock, client_message, strlen(client_message), 0);
             printf("Closing connection\n");
             break;
         }
