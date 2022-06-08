@@ -13,9 +13,28 @@ Alunos:
 #include <sys/types.h>
 #include <arpa/inet.h>
 #include <pthread.h>
+#include <termios.h> 
 
 #define MSG_LEN 4096
 #define PORT 1337
+
+int clear_icanon(void) {
+    struct termios settings;
+    int result;
+    result = tcgetattr (STDIN_FILENO, &settings);
+    if (result < 0) {
+        perror ("error in tcgetattr");
+        return 0;
+    }
+
+    settings.c_lflag &= ~ICANON;
+    result = tcsetattr (STDIN_FILENO, TCSANOW, &settings);
+    if (result < 0) {
+        perror ("error in tcsetattr");
+        return 0;
+    }
+    return 1;
+}
 
 void* send_thread(void *args) {
     int* client_sock = (int*) args;
@@ -26,7 +45,7 @@ void* send_thread(void *args) {
         fgets(msg, MSG_LEN, stdin);
         if (msg == NULL) break;
         if (msg[0] == '\n') continue;
-        int bytes_read = send(*client_sock, msg, strlen(msg), 0);
+        send(*client_sock, msg, strlen(msg), 0);
         printf("msg len: %ld\n", strlen(msg));
         memset(msg, 0, MSG_LEN);
     }
@@ -57,6 +76,7 @@ void* receive_thread(void *args) {
 }
 
 int main() {
+    clear_icanon();
     int socket_desc = socket(AF_INET, SOCK_STREAM, 0);
     
     if(socket_desc < 0){
