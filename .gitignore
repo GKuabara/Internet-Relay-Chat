@@ -4,6 +4,7 @@
 *.exe
 *.o
 *.so
+*.txt
 server
 client
 utils.c
