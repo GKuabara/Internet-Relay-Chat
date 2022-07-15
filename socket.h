@@ -12,8 +12,9 @@
 #include <termios.h> 
 #include <limits.h>
 
-#define MSG_LEN 4096
 #define NAME_LEN 50
+#define CNL_LEN 200
+#define MSG_LEN 4096
 #define BUFF_LEN (MSG_LEN + NAME_LEN + 4)
 #define PORT 1337
 #define SERVERPORT 1337

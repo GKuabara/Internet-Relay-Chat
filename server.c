@@ -12,6 +12,11 @@ static _Atomic unsigned int n_clients = 0;
 static int uid = 10;
 
 typedef struct {
+    char key[CNL_LEN];
+    
+} channel_t;
+
+typedef struct {
     SA_IN address;
     int sockfd;
     int uid;
@@ -38,11 +43,9 @@ void queue_add(client_t *cl){
 void queue_remove(int uid){
 	pthread_mutex_lock(&clients_mutex);
 	for(int i = 0; i < MAX_CLIENTS; ++i){
-		if(clients[i]){
-			if(clients[i]->uid == uid){
-				clients[i] = NULL;
-				break;
-			}
+		if(clients[i] && clients[i]->uid == uid){
+            clients[i] = NULL;
+            break;
 		}
 	}
 	pthread_mutex_unlock(&clients_mutex);
@@ -55,22 +58,20 @@ void send_message(char *s, client_t* cli){
 
 	for(int i = 0; i < MAX_CLIENTS; ++i){
 		if(clients[i] && clients[i]->uid != cli->uid){
-
             // try to send message 5 times, if can't close connection
-            int c = 5;
-            while(c--) {
+            // int c = 5;
+            // while(c--) {
                 check(write(clients[i]->sockfd, s, strlen(s)),"ERROR: write to descriptor failed");
                 
-                int bytes_recv = recv(cli->sockfd, msg, BUFF_LEN, 0);
-                str_trim_lf(msg);
-                if (bytes_recv > 0 && strcmp(msg, "received") == 0)
-                    break;
-            }
-            if (c == 0) {
-                close(cli->sockfd);
-                queue_remove(cli->uid);
-                free(cli);
-            }
+            //     int bytes_recv = recv(clients[i]->sockfd, msg, sizeof(msg), 0);
+            //     str_trim_lf(msg);
+            //     if (bytes_recv > 0 && strcmp(msg, "received") == 0)
+            //         break;
+            // }
+            // if (c == 0) {
+            //     close(clients[i]->sockfd);
+            //     queue_remove(clients[i]->uid);
+            // }
         }
         bzero(msg, sizeof(msg));
 	}
@@ -155,7 +156,7 @@ void* handle_client(void *arg) {
                 sprintf(buffer_out, "%s: %s\n", name, msg);
                 str_trim_lf(buffer_out);
                 printf("> %s\n", buffer_out);
-            } 
+            }
             else {
                 sprintf(buffer_out, "%s: %s\n", name, msg);
                 send_message(buffer_out, cli);
@@ -203,8 +204,13 @@ int main() {
         cli->address = *client_addr;
         cli->sockfd = client_socket;
         cli->uid = uid++;
-
+        
         queue_add(cli);
+        for (int i = 0; i < MAX_CLIENTS; i++) {
+            if (clients[i]) {
+                printf("sockfd: %d, uid: %d, name: %s\n", clients[i]->sockfd, clients[i]->uid, clients[i]->name);
+            }
+        }
         pthread_create(&thread, NULL, &handle_client,(void*)cli);
 
         sleep(1);

@@ -61,19 +61,22 @@ void* send_msg_handler() {
 
 /* Thread function to receive messages */
 void* recv_msg_handler() {
-    char msg[BUFF_LEN] = {};
+    char buff[BUFF_LEN];
     
     while(1) {
-        int receive = recv(client_socket, msg, BUFF_LEN, 0);
+        int receive = recv(client_socket, buff, BUFF_LEN, 0);
+        if (receive == 0) break;
         if (receive > 0) {
-            printf("%s\n", msg);
+            str_trim_lf(buff);
+            printf("%s\n", buff);
             str_overwrite_stdout();
-        } else if (receive == 0)
-            break;
 
-        send(client_socket, "received", strlen("received"), 0);
+            // bzero(buff, BUFF_LEN);
+            // sprintf(buff, "received\n");
+            // send(client_socket, buff, strlen(buff), 0);
 
-        bzero(msg, BUFF_LEN);
+            bzero(buff, BUFF_LEN);
+        }
     }
     return NULL;
 }
