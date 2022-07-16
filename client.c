@@ -47,9 +47,21 @@ void* send_msg_handler() {
 
         if (strlen(msg) == 0 || strcmp(msg, "/quit") == 0) break;
         else {
-            // sprintf(buffer, "%s: %s\n", name, msg);
+            char** tokens = str_get_tokens_(msg, ' ');
+            // for (int i = 0; tokens[i]; i++) {
+            //     printf("%d: %s\n", i, tokens[i]);
+            //     n_tokens++;
+            // }
+            
+            if (strcmp(tokens[0], "/nickname") == 0) {
+                printf("%s nickname updated to ", name);
+                strcpy(name, tokens[1]);
+                printf("%s\n", name);
+            }
+            //sprintf(buffer, "%s: %s\n", name, msg);
             sprintf(buffer, "%s\n", msg);
             send(client_socket, buffer, strlen(buffer), 0);
+            str_free_tokens(tokens);
         }
 
 		bzero(msg, MSG_LEN);
@@ -70,10 +82,6 @@ void* recv_msg_handler() {
             str_trim_lf(buff);
             printf("%s\n", buff);
             str_overwrite_stdout();
-
-            // bzero(buff, BUFF_LEN);
-            // sprintf(buff, "received\n");
-            // send(client_socket, buff, strlen(buff), 0);
 
             bzero(buff, BUFF_LEN);
         }

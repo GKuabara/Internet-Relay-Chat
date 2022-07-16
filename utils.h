@@ -16,5 +16,8 @@ int clear_icanon();
 int send_all(int *soc, char *buf, int *len);
 void str_overwrite_stdout();
 void str_trim_lf (char* arr);
+char* _build_token(char**t, int t_size, char c);
+char** str_get_tokens_(char* str, const char d);
+void str_free_tokens(char**tokens);
 
 #endif

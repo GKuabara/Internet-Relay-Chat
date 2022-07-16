@@ -20,7 +20,9 @@
 #define SERVERPORT 1337
 #define SOCKETERROR (-1)
 #define SERVER_BACKLOG 100
-#define MAX_CLIENTS 20
+#define MAX_CHANNELS 10
+#define MAX_CLI_PER_CHANNEL 20
+#define MAX_CLIENTS (MAX_CLI_PER_CHANNEL * MAX_CHANNELS)
 
 typedef struct sockaddr_in SA_IN;
 typedef struct sockaddr SA;
