@@ -18,6 +18,8 @@ typedef struct {
     char name[NAME_LEN];
     int is_admin;
     int is_muted;
+    int kick;
+    pthread_t thread;
 } client_t;
 
 typedef struct {
@@ -105,6 +107,7 @@ int add_client_to_channel(char* str, client_t* cli) {
         new_cnl->admin_id = cli->uid;
         new_cnl->connected_cli[0] = cli;
         new_cnl->n_cli = 1;
+        cli->is_admin = 1;
         for (int i = 0; i < MAX_CHANNELS; i++) {
             if(!channels[i]) {
                 channels[i] = new_cnl;
@@ -172,7 +175,7 @@ void send_message(char *s, client_t* cli){
     }
 
 	for(int i = 0; i < MAX_CLI_PER_CHANNEL; ++i){
-		if(channels[idx]->connected_cli[i] && channels[idx]->connected_cli[i] != cli){
+		if(channels[idx]->connected_cli[i] && channels[idx]->connected_cli[i] != cli && channels[idx]->connected_cli[i]->kick == 0){
             
             int bytes_sent = check(write(channels[idx]->connected_cli[i]->sockfd, s, strlen(s)),"ERROR: write to descriptor failed");
                 
@@ -252,11 +255,12 @@ void* handle_client(void *arg) {
 
     bzero(buffer_out, BUFF_LEN);
     while (1) {
-        if (flag_leave || !cli) break;
+        //if (flag_leave || cli->kick) break;
         str_overwrite_stdout();
         
         int command = 0;
         int receive = recv(cli->sockfd, msg, MSG_LEN, 0);
+        if (flag_leave || cli->kick) break;
         if (receive > 0) {
             str_trim_lf(msg);
 
@@ -268,15 +272,14 @@ void* handle_client(void *arg) {
             }
 
             if (strcmp(msg, "/ping") == 0) {
-                printf("command: ping\n");
                 check(write(cli->sockfd, "server: pong\n", strlen("server: pong\n")),"ERROR: write to descriptor failed");
                 sprintf(buffer_out, "%s: %s\n", name, msg);
                 //str_trim_lf(buffer_out);
                 printf("%s", buffer_out);
+                command = 1;
             }
             if (n_tokens == 2) {
                 if (strcmp(tokens[0], "/join") == 0) {
-                    printf("command: join\n");
                     if (add_client_to_channel(tokens[1], cli)) {
 
                         sprintf(buffer_out, "%s joined channel %s\n", name, tokens[1]);
@@ -293,53 +296,54 @@ void* handle_client(void *arg) {
                     command = 1;
                 }
                 else if (strcmp(tokens[0], "/nickname") == 0) {
-                    printf("command: nickname\n");
-                    printf("%s nickname updated to ", cli->name);
+                    sprintf(buffer_out, "%s nickname updated to %s\n", cli->name, tokens[1]);
                     strcpy(cli->name, tokens[1]);
-                    printf("%s\n", cli->name);
+                    printf("%s", buffer_out);
+                    send_message(buffer_out, cli);
                     command = 1;
                 }
-                else if (cli->is_admin) {
-                    printf("command: admin\n");
+                else if (cli->is_admin && (strcmp(tokens[0], "/kick") == 0 || strcmp(tokens[0], "/mute") == 0 || strcmp(tokens[0], "/unmute") == 0 || strcmp(tokens[0], "/whois") == 0)) {
+                    printf("command admin\n");
                     int adm_idx;
                     int adm_cnl = find_channel_and_client(cli->name, &adm_idx);
 
                     int cli_idx;
                     int cnl_idx = find_channel_and_client(tokens[1], &cli_idx);
 
-                    if (cnl_idx != adm_cnl || cnl_idx < 0) continue; 
-
+                    if (cnl_idx != adm_cnl || cnl_idx < 0) {
+                        printf("Client não encontrado ou não está no mesmo chat\n");
+                        continue;
+                    }
                     if (strcmp(tokens[0], "/kick") == 0) {
-                        printf("command: kick\n");
                         int i = find_client(channels[cnl_idx]->connected_cli[cli_idx]);
+                        
+                        sprintf(buffer_out, "%s was kicked from channel '%s' by admin '%s'\n", clients[i]->name, channels[adm_cnl]->key, cli->name);
+                        send_message(buffer_out, cli);
+                        printf("%s", buffer_out);
 
-                        close(clients[i]->sockfd);
-                        queue_remove(clients[i]->uid);
-                        remove_client_from_channel(cnl_idx, clients[i]);
-                        free(clients[i]);
+                        pthread_mutex_lock(&clients_mutex);
+                        channels[cnl_idx]->connected_cli[cli_idx]->kick = 1;
+                        pthread_mutex_unlock(&clients_mutex);
+
                         command = 1;
-                        break;
                     }
                     else if (strcmp(tokens[0], "/mute") == 0) {
-                        printf("command: mute\n");
                         channels[cnl_idx]->connected_cli[cli_idx]->is_muted = 1;
                         command = 1;
                     }
                     else if (strcmp(tokens[0], "/unmute") == 0) {
-                        printf("command: unmute\n");
                         channels[cnl_idx]->connected_cli[cli_idx]->is_muted = 0;
                         command = 1;
                     }
                     else if (strcmp(tokens[0], "/whois") == 0) {
-                        printf("command: whois\n");
-                        sprintf(buffer_out, "%s is %s\n", tokens[1], inet_ntoa(channels[cnl_idx]->connected_cli[cli_idx]->address.sin_addr));
-                        check(write(channels[cnl_idx]->connected_cli[cli_idx]->sockfd, buffer_out, BUFF_LEN),"ERROR: write to descriptor failed");
+                        sprintf(buffer_out, "%s IPv4 is %s\n", tokens[1], inet_ntoa(channels[cnl_idx]->connected_cli[cli_idx]->address.sin_addr));
+                        check(write(cli->sockfd, buffer_out, BUFF_LEN),"ERROR: write to descriptor failed");
                         command = 1;
                     }
                 }
             }
             if (!command) {
-                sprintf(buffer_out, "%s: %s\n", name, msg);
+                sprintf(buffer_out, "%s: %s\n", cli->name, msg);
                 send_message(buffer_out, cli);
                 //str_trim_lf(buffer_out);
                 printf("%s",buffer_out);
@@ -361,14 +365,14 @@ void* handle_client(void *arg) {
         bzero(buffer_out, BUFF_LEN);
     }
 
-    if (cli) {
+    // if (cli) {
         int idx = find_channel_of_client(cli);
         close(cli->sockfd);
         queue_remove(cli->uid);
         if (idx != -1) remove_client_from_channel(idx, cli);
         free(cli);
         pthread_detach(pthread_self());
-    }
+    // }
     return NULL;
 }
 
@@ -376,13 +380,13 @@ int main() {
     clear_icanon();
     SA_IN* client_addr = (SA_IN*)malloc(sizeof(SA_IN));
     SA_IN* server_addr = (SA_IN*)malloc(sizeof(SA_IN));
-    pthread_t thread;
 
     int server_socket = setup_server(SERVERPORT, SERVER_BACKLOG, server_addr);
 
     printf("=== WELCOME TO ZAP ZAP ===\n");
 
     while (1) {
+        pthread_t thread;
         int client_socket;
         if((client_socket = accept_new_connection(server_socket, client_addr)) < 0) continue;
 
@@ -393,6 +397,8 @@ int main() {
         cli->uid = uid++;
         cli->is_admin = 0;
         cli->is_muted = 0;
+        cli->kick = 0;
+        cli->thread = thread;
         
         queue_add(cli);
         // for (int i = 0; i < MAX_CLIENTS; i++) {

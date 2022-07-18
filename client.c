@@ -86,6 +86,7 @@ void* recv_msg_handler() {
             bzero(buff, BUFF_LEN);
         }
     }
+    catch_exit(2);
     return NULL;
 }
 
