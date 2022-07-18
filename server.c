@@ -6,7 +6,6 @@ Alunos:
 */
 
 #include "utils.h"
-#include "socket.h"
 
 static _Atomic unsigned int n_clients = 0;
 static int uid = 10;
@@ -35,6 +34,7 @@ channel_t* channels[MAX_CHANNELS];
 pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t channels_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+/* Returns index of client in array */
 int find_client (client_t* cli) {
     for (int i = 0; i < MAX_CLIENTS; i++) {
         if (clients[i] && clients[i] == cli) {
@@ -44,6 +44,7 @@ int find_client (client_t* cli) {
     return -1;
 }
 
+/* Returns index of channel with desired client */
 int find_channel_of_client(client_t* cli) {
     for (int i = 0; i < MAX_CHANNELS; i++) {
         if (channels[i]) {
@@ -58,6 +59,7 @@ int find_channel_of_client(client_t* cli) {
     return -1;
 }
 
+/* Returns channel and client of desired client name */
 int find_channel_and_client (char* str, int* idx) {
     for (int i = 0; i < MAX_CHANNELS; i++) {
         if (channels[i]) {
@@ -73,6 +75,7 @@ int find_channel_and_client (char* str, int* idx) {
     return -1;
 }
 
+/* Returns channel of desired name */
 int find_channel(char* str) {
     for (int i = 0; i < MAX_CHANNELS; i++) {
         if (channels[i] && strcmp(channels[i]->key, str) == 0)
@@ -85,11 +88,13 @@ int find_channel(char* str) {
 int add_client_to_channel(char* str, client_t* cli) {
 	pthread_mutex_lock(&channels_mutex);
 
+    // checks if channel name is valid
     if (str[0] != '#' && str[0] != '&') {
 	    pthread_mutex_unlock(&channels_mutex);
         return 0;
     }
 
+    // looks for existing channel
     int idx;
     if ((idx = find_channel(str)) > -1) {
         for (int i = 0; i < MAX_CLI_PER_CHANNEL; ++i){
@@ -101,6 +106,7 @@ int add_client_to_channel(char* str, client_t* cli) {
             }                          
         }
 	}
+    // create new channel
     else {
         channel_t* new_cnl = malloc(sizeof(*new_cnl));
         strcpy(new_cnl->key, str);
@@ -163,7 +169,7 @@ void queue_remove(int uid){
 }
 
 
-/* Send message to all clients except sender */
+/* Send message to all clients in channel except sender */
 void send_message(char *s, client_t* cli){
     if (cli->is_muted) return;
 	pthread_mutex_lock(&clients_mutex);
@@ -239,13 +245,12 @@ void* handle_client(void *arg) {
     char msg[MSG_LEN];
     char buffer_out[BUFF_LEN];
     char name[NAME_LEN];
-    int flag_leave = 0;
     client_t *cli = (client_t *) arg;
 
     // get client name
     if (recv(cli->sockfd, name, NAME_LEN, 0) <= 0 || strlen(name) < 2 || strlen(name) >= NAME_LEN - 1) {
         printf("Failed to get name or invalid name\n");
-        flag_leave = 1;
+        cli->kick = 1;
     } else {
         strcpy(cli->name, name);
         sprintf(buffer_out, "%s has joined chat\n", cli->name);
@@ -255,12 +260,12 @@ void* handle_client(void *arg) {
 
     bzero(buffer_out, BUFF_LEN);
     while (1) {
-        //if (flag_leave || cli->kick) break;
+        if (cli->kick) break;
         str_overwrite_stdout();
         
         int command = 0;
         int receive = recv(cli->sockfd, msg, MSG_LEN, 0);
-        if (flag_leave || cli->kick) break;
+        // if (cli->kick) break;
         if (receive > 0) {
             str_trim_lf(msg);
 
@@ -274,7 +279,6 @@ void* handle_client(void *arg) {
             if (strcmp(msg, "/ping") == 0) {
                 check(write(cli->sockfd, "server: pong\n", strlen("server: pong\n")),"ERROR: write to descriptor failed");
                 sprintf(buffer_out, "%s: %s\n", name, msg);
-                //str_trim_lf(buffer_out);
                 printf("%s", buffer_out);
                 command = 1;
             }
@@ -284,13 +288,11 @@ void* handle_client(void *arg) {
 
                         sprintf(buffer_out, "%s joined channel %s\n", name, tokens[1]);
                         check(write(cli->sockfd, buffer_out, BUFF_LEN), "ERROR: write to descriptor failed");
-                        //str_trim_lf(buffer_out);
                         printf("%s", buffer_out);
                     }
                     else {
                         sprintf(buffer_out, "channel %s is invalid or full\n", tokens[1]);
                         check(write(cli->sockfd, buffer_out, BUFF_LEN), "ERROR: write to descriptor failed");
-                        //str_trim_lf(buffer_out);
                         printf("%s", buffer_out);
                     }
                     command = 1;
@@ -345,34 +347,30 @@ void* handle_client(void *arg) {
             if (!command) {
                 sprintf(buffer_out, "%s: %s\n", cli->name, msg);
                 send_message(buffer_out, cli);
-                //str_trim_lf(buffer_out);
                 printf("%s",buffer_out);
             }
-            //str_overwrite_stdout();
             str_free_tokens(tokens);
         }
         else if(receive == 0 || strcmp(msg, "/quit") == 0) {
             sprintf(buffer_out, "%s has left\n", cli->name);
             printf("%s", buffer_out);
             send_message(buffer_out, cli);
-            flag_leave = 1;
+            cli->kick = 1;
         }
         else {
             printf("ERROR: -1\n");
-            flag_leave = 1;
+            cli->kick = 1;
         }
         bzero(msg, MSG_LEN);
         bzero(buffer_out, BUFF_LEN);
     }
 
-    // if (cli) {
-        int idx = find_channel_of_client(cli);
-        close(cli->sockfd);
-        queue_remove(cli->uid);
-        if (idx != -1) remove_client_from_channel(idx, cli);
-        free(cli);
-        pthread_detach(pthread_self());
-    // }
+    int idx = find_channel_of_client(cli);
+    close(cli->sockfd);
+    queue_remove(cli->uid);
+    if (idx != -1) remove_client_from_channel(idx, cli);
+    free(cli);
+    pthread_detach(pthread_self());
     return NULL;
 }
 
@@ -390,7 +388,7 @@ int main() {
         int client_socket;
         if((client_socket = accept_new_connection(server_socket, client_addr)) < 0) continue;
 
-        // creating thread to send messages
+        // setting client struct
         client_t* cli = (client_t *) malloc(sizeof(client_t));
         cli->address = *client_addr;
         cli->sockfd = client_socket;
@@ -401,11 +399,7 @@ int main() {
         cli->thread = thread;
         
         queue_add(cli);
-        // for (int i = 0; i < MAX_CLIENTS; i++) {
-        //     if (clients[i]) {
-        //         printf("sockfd: %d, uid: %d, name: %s\n", clients[i]->sockfd, clients[i]->uid, clients[i]->name);
-        //     }
-        // }
+
         pthread_create(&thread, NULL, &handle_client,(void*)cli);
 
         sleep(1);

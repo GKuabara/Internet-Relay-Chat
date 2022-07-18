@@ -1,14 +1,14 @@
 CC=gcc
 CFLAGS = -Wall
 LDFLAGS = 
-OBJFILES = server.o client.o utils.o socket.o
-OBJFILES_SERVER = server.o utils.o socket.o
-OBJFILES_CLIENT = client.o utils.o socket.o
-OBJFILES_UTILS = utils.o socket.o
+OBJFILES = server.o client.o utils.o
+OBJFILES_SERVER = server.o utils.o
+OBJFILES_CLIENT = client.o utils.o
+OBJFILES_UTILS = utils.o
 TARGET = server client
 TARGET_SERVER = server
 TARGET_CLIENT = client
-TARGET_UTILS = utils socket
+TARGET_UTILS = utils
 
 all: $(TARGET)
 

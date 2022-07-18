@@ -6,7 +6,6 @@ Alunos:
 */
 
 #include "utils.h"
-#include "socket.h"
 
 volatile sig_atomic_t flag_ctrl_c = 0;
 volatile sig_atomic_t flag_exit = 1;
@@ -18,6 +17,7 @@ void catch_ctrl_c(int sig) {
     flag_ctrl_c = 1;
 }
 
+/* SIGNAL to exit process */
 void catch_exit(int sig) {
     flag_exit = 0;
 }
@@ -48,17 +48,13 @@ void* send_msg_handler() {
         if (strlen(msg) == 0 || strcmp(msg, "/quit") == 0) break;
         else {
             char** tokens = str_get_tokens_(msg, ' ');
-            // for (int i = 0; tokens[i]; i++) {
-            //     printf("%d: %s\n", i, tokens[i]);
-            //     n_tokens++;
-            // }
             
             if (strcmp(tokens[0], "/nickname") == 0) {
                 printf("%s nickname updated to ", name);
                 strcpy(name, tokens[1]);
                 printf("%s\n", name);
             }
-            //sprintf(buffer, "%s: %s\n", name, msg);
+
             sprintf(buffer, "%s\n", msg);
             send(client_socket, buffer, strlen(buffer), 0);
             str_free_tokens(tokens);
@@ -116,14 +112,14 @@ int main() {
     if(set_name()) return EXIT_FAILURE;
     
     // Wait for /connect command
-    // char msg[10];
-    // while (1) {
-    //     str_overwrite_stdout();
-    //     fgets(msg, sizeof(msg), stdin);
-    //     str_trim_lf(msg);
-    //     if (strcmp(msg, "/connect") == 0) break;
-    //     else if(strcmp(msg, "/quit") == 0) return 0;
-    // }
+    char msg[10];
+    while (1) {
+        str_overwrite_stdout();
+        fgets(msg, sizeof(msg), stdin);
+        str_trim_lf(msg);
+        if (strcmp(msg, "/connect") == 0) break;
+        else if(strcmp(msg, "/quit") == 0) return 0;
+    }
 
     client_socket = try_new_connection();
     
