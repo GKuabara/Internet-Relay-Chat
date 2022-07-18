@@ -14,34 +14,21 @@ This project consists in 2 deliveries that are divided in different folders.
 
 The code was enterely built in programing lanaguage C and in a Ubuntu 22.04 Operational System. Also, the implementation uses gcc (version 11.2.0) and make (version 4.3) packages.
 
-<!--
+
 The code can be compiled using any starndad Linux with gcc and make packages through the following command:
 
 ```
 make all
 ```
 
-To run the code:
+To run the code, first run the server:
 
 ```
-./chat [parameters]
+./server
 ```
 
-To start a new server with default parameters:
+To start a client:
 
 ```
-./chat server
+./client
 ```
-
-To start a client with default parameters:
-
-```
-./chat client
-```
-
-If need some help with the parameters, try:
-
-```
-./chat --help
-```)
--->
